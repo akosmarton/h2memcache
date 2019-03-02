@@ -13,6 +13,8 @@ import (
 type handler struct{}
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	if apikey != "" && r.Header.Get("Authorization") != "Bearer "+apikey {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -55,9 +57,13 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	case http.MethodPut:
-		exp, _ := strconv.Atoi(r.Header.Get("X-Cache-Expire"))
 		buf := &bytes.Buffer{}
-		buf.ReadFrom(r.Body)
+		if _, err := buf.ReadFrom(r.Body); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Println(err)
+			return
+		}
+		exp, _ := strconv.Atoi(r.Header.Get("X-Cache-Expire"))
 		if err := cache.Set(key, buf.Bytes(), exp); err == nil {
 			w.WriteHeader(http.StatusOK)
 		} else {

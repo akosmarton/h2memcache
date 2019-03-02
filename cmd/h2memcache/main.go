@@ -20,7 +20,7 @@ var certManager *autocert.Manager
 
 func main() {
 	cacheSize, _ := strconv.Atoi(os.Getenv("CACHE_SIZE"))
-	host := os.Getenv("HOST")
+	hostname := os.Getenv("HOSTNAME")
 	port := os.Getenv("PORT")
 	cert := os.Getenv("TLS_CERT_FILE")
 	key := os.Getenv("TLS_KEY_FILE")
@@ -29,8 +29,8 @@ func main() {
 
 	certManager = &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(host), //Your domain here
-		Cache:      autocert.DirCache(certDir),   //Folder for storing certificates
+		HostPolicy: autocert.HostWhitelist(hostname),
+		Cache:      autocert.DirCache(certDir),
 	}
 
 	cache = freecache.NewCache(cacheSize * 1024 * 1024)
@@ -47,14 +47,17 @@ func main() {
 		Handler: &handler{},
 	}
 
-	if cert == "" || key == "" {
-		if host != "" {
-			srv.TLSConfig = certManager.TLSConfig()
-		}
+	ssl := false
+
+	if cert != "" && key != "" {
+		ssl = true
+	} else if hostname != "" {
+		srv.TLSConfig = certManager.TLSConfig()
+		ssl = true
 	}
 
 	go func() {
-		if cert == "" || key == "" {
+		if ssl == false {
 			log.Printf("Listening on port %s", port)
 			if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 				log.Fatal(err)
